@@ -139,7 +139,13 @@ jobs:
 
       - name: Configure (preset x64-release)
         run: |
+          # CUDA driver headers (cuda.h) for native NVIDIA VFG, pinned by SHA256.
+          python -m pip download --no-deps --only-binary=:all: --platform win_amd64 nvidia-cuda-runtime-cu12==12.8.90 -d C:\cudahdr
+          $whl = (Get-ChildItem C:\cudahdr\*.whl).FullName
+          if ((Get-FileHash $whl).Hash.ToLowerInvariant() -ne 'c0c6027f01505bfed6c3b21ec546f69c687689aad5f1a377554bc6ca4aa993a8') { throw 'CUDA header wheel hash mismatch' }
+          python -m zipfile -e $whl C:\cudahdr\x
           cmake --preset x64-release -B C:\b `
+            "-DVEYRA_CUDA_DRIVER_INCLUDE_DIR=C:/cudahdr/x/nvidia/cuda_runtime/include" `
             -DVEYRA_BUILD_QML_UI=ON `
             -DVEYRA_ENABLE_EXPERIMENTAL_DLSSNR=ON `
             "-DVEYRA_DLSS_SDK_ROOT=$((Resolve-Path third_party_local/nvidia/DLSS_SDK_310.7.0).Path)" `
