@@ -191,6 +191,16 @@ jobs:
             }
           }
           Copy-Item "$env:VCToolsRedistDir\x64\Microsoft.VC143.CRT\*.dll" $stage
+          # OpenSSL DLLs from the runner's OpenSSL that the build linked against (not packaged upstream).
+          Copy-Item "$env:ProgramFiles\OpenSSL\bin\libcrypto-3-x64.dll", "$env:ProgramFiles\OpenSSL\bin\libssl-3-x64.dll" $stage
+          # Report directly imported DLLs that are neither packaged nor part of Windows.
+          foreach ($bin in Get-ChildItem $stage -Recurse -Include *.exe,*.dll) {
+            $deps = (dumpbin /nologo /dependents $bin.FullName) -match '^\s+\S+\.dll$' | ForEach-Object { $_.Trim() }
+            foreach ($d in $deps) {
+              if ($d -like 'api-ms-*' -or $d -like 'ext-ms-*') { continue }
+              if (-not (Test-Path (Join-Path $bin.DirectoryName $d)) -and -not (Test-Path (Join-Path $stage $d)) -and -not (Test-Path "$env:SystemRoot\System32\$d")) { Write-Host "MISSING-DEP $($bin.Name) -> $d" }
+            }
+          }
           foreach ($f in 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'README_EN.md') { Copy-Item $f $stage }
           @'
           Veyra Windows CI build for development testing.
